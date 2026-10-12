@@ -116,6 +116,8 @@ struct RepoDef {
 
 static const RepoDef kRepos[] = {
 	{ "https://pkgman.rainygirl.com/arm64", "arm64" },
+	{ "https://pkgman.rainygirl.com/x86_64", "x86_64" },
+	{ "https://pkgman.rainygirl.com/x86_gcc2", "x86" },
 	{ "https://spritzdepot.desktoponfire.com/repo/x86_64/current", "x86_64" },
 	{ "https://kiri.sen-labs.org/x86_64", "x86_64" },
 	{ "https://software.besly.de/repo64", "x86_64" },
@@ -171,6 +173,15 @@ CurrentArch()
 #else
 #error "R AppMarket: unrecognized target architecture"
 #endif
+}
+
+// The architecture suffix of this build's .hpkg filenames. Same as
+// CurrentArch() except on x86, which runs on a gcc2 hybrid whose repos
+// name every package (secondary-arch _x86 ones included) "-x86_gcc2.hpkg".
+static const char*
+PackageArch()
+{
+	return strcmp(CurrentArch(), "x86") == 0 ? "x86_gcc2" : CurrentArch();
 }
 
 static const uint32 kMsgRefreshDone = 'RFsh';
@@ -814,7 +825,7 @@ ResolveHpkgFilename(const BString& repoUrl, const BString& name)
 	BString prefix(name);
 	prefix << "-";
 	BString suffix("-");
-	suffix << CurrentArch() << ".hpkg";
+	suffix << PackageArch() << ".hpkg";
 
 	BString best;
 	int32 bestRevision = -1;
