@@ -1,0 +1,4 @@
+dist/
+objects.*/
+*.o
+.DS_Store
