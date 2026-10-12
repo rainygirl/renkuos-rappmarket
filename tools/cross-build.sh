@@ -73,7 +73,7 @@ arm64)
 			ln -sfn $P/hpkg_-haiku_devel.hpkg/contents/develop $WORK/sysroot/boot/system/develop
 			SYSLIBS=\$(ls -d $ARM64_GENERATED/build_packages/gcc_syslibs-*-arm64/lib | head -1)
 			CXX=\"$ARM64_GENERATED/cross-tools-arm64/bin/aarch64-unknown-haiku-g++ --sysroot=$WORK/sysroot\"
-			LIBS=\"-L$P/hpkg_-haiku.hpkg/contents/lib -L\$SYSLIBS -lbe -lstdc++\"
+			LIBS=\"-L$P/hpkg_-haiku.hpkg/contents/lib -L\$SYSLIBS -lbe -lpackage -lstdc++\"
 			\$CXX -c main.cpp -O2 -std=c++17 -Wno-multichar -o main.o >&2
 			\$CXX -o RAppMarket main.o -Xlinker -soname=_APP_ \$LIBS >&2
 			tar cf - RAppMarket
@@ -87,7 +87,7 @@ x86_64)
 			set -e
 			mkdir -p /work && cd /work && tar xf -
 			x86_64-unknown-haiku-g++ -c main.cpp -O2 -std=c++17 -Wno-multichar -o main.o
-			x86_64-unknown-haiku-g++ -o RAppMarket main.o -Xlinker -soname=_APP_ -lbe -lstdc++
+			x86_64-unknown-haiku-g++ -o RAppMarket main.o -Xlinker -soname=_APP_ -lbe -lpackage -lstdc++
 			tar cf - RAppMarket" \
 		| tar xf - -C "$OUT"
 	attach_resources x86_64
@@ -98,7 +98,7 @@ x86)
 			set -e
 			mkdir -p /work && cd /work && tar xf -
 			i586-pc-haiku-g++-x86 -c main.cpp -O2 -std=c++17 -Wno-multichar -o main.o
-			i586-pc-haiku-g++-x86 -o RAppMarket main.o -Xlinker -soname=_APP_ -lbe -lstdc++
+			i586-pc-haiku-g++-x86 -o RAppMarket main.o -Xlinker -soname=_APP_ -lbe -lpackage -lstdc++
 			tar cf - RAppMarket" \
 		| tar xf - -C "$OUT"
 	attach_resources x86

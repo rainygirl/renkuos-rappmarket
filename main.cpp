@@ -35,6 +35,16 @@
 #include <Window.h>
 
 #include <OS.h>
+#include <StringList.h>
+#include <package/PackageInfo.h>
+#include <package/PackageRoster.h>
+#include <package/RepositoryCache.h>
+
+#include <dlfcn.h>
+
+using BPackageKit::BPackageInfo;
+using BPackageKit::BPackageRoster;
+using BPackageKit::BRepositoryCache;
 
 #include <algorithm>
 #include <cctype>
@@ -42,6 +52,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <new>
 #include <vector>
 
 #include "Strings.h"
@@ -772,14 +784,25 @@ struct RefreshJob {
 	PtrList<BString, true>* repoUrls;
 };
 
+// Builds the same two texts FetchPackageInfo pulls out of `pkgman info`:
+// the one-line blurb a row shows under its name, and the full
+// "<name>: <summary>\n\n<description>" the detail panel shows.
+static void
+SetPackageTexts(const BString& name, const BString& summary,
+	const BString& description, BString* shortDesc, BString* fullDesc)
+{
+	*shortDesc = summary;
+	shortDesc->Trim();
+	*fullDesc = name;
+	*fullDesc << ": " << summary << "\n\n" << description;
+	fullDesc->Trim();
+}
+
 // `pkgman info` reads straight out of the local repo index this app
-// already fetched via add-repo/refresh -- no network round-trip, so this
-// runs once per package synchronously inside RefreshThreadFunc (already a
-// background thread) instead of needing its own thread per call. Pulls
-// out both the one-line blurb a row shows under its name and the full
-// text the detail panel shows on selection, so neither one ever makes
-// the user wait on a fetch triggered by clicking something -- both are
-// already sitting in the just-refreshed PackageItem.
+// already fetched via add-repo/refresh -- no network round-trip -- but each
+// call loads every configured repo (HaikuPorts included) into the solver
+// first, about 10 s per call on a 1.33 GHz Atom. Only the fallback now; see
+// LoadRepoPackageTexts.
 static void
 FetchPackageInfo(const BString& name, BString* shortDesc, BString* fullDesc)
 {
@@ -805,6 +828,66 @@ FetchPackageInfo(const BString& name, BString* shortDesc, BString* fullDesc)
 		firstLine.Trim();
 	}
 	*shortDesc = firstLine;
+}
+
+struct PackageTexts {
+	BString summary;
+	BString description;
+};
+typedef std::map<BString, PackageTexts> PackageTextMap;
+
+// BRepositoryCache::GetPackageInfos(callback, context), the Haiku nightly
+// API RENKU ships. The R1 Beta 4 headers the x86_64/x86 cross-builds use
+// have an iterator API in its place instead (and that libpackage has no
+// GetPackageInfos), so it is looked up at runtime rather than called by
+// name: one binary then works against either libpackage.
+typedef bool (*PackageInfoCallback)(void* context, const BPackageInfo& info);
+typedef status_t (*GetPackageInfosFunc)(const BRepositoryCache* cache,
+	PackageInfoCallback callback, void* context);
+static const char* kGetPackageInfosSymbol
+	= "_ZNK11BPackageKit16BRepositoryCache15GetPackageInfosEPFbPvRKNS_"
+	  "12BPackageInfoEES1_";
+
+static bool
+CollectPackageTexts(void* context, const BPackageInfo& info)
+{
+	PackageTextMap* texts = (PackageTextMap*)context;
+	// First repo to list a name wins, the same as pkgman's own lookup order.
+	if (texts->find(info.Name()) == texts->end()) {
+		PackageTexts& entry = (*texts)[info.Name()];
+		entry.summary = info.Summary();
+		entry.description = info.Description();
+	}
+	return true;
+}
+
+// Reads every configured repo's local cache once, in-process, instead of
+// one `pkgman info` per package. False when this libpackage lacks
+// GetPackageInfos (R1 Beta 4); the caller then falls back to pkgman info.
+static bool
+LoadRepoPackageTexts(PackageTextMap* texts)
+{
+	GetPackageInfosFunc getPackageInfos
+		= (GetPackageInfosFunc)dlsym(RTLD_DEFAULT, kGetPackageInfosSymbol);
+	if (getPackageInfos == NULL)
+		return false;
+
+	BPackageRoster roster;
+	BStringList names;
+	if (roster.GetRepositoryNames(names) != B_OK)
+		return false;
+
+	for (int32 i = 0; i < names.CountStrings(); i++) {
+		// BRepositoryCache is laid out by whichever headers this was built
+		// against, which need not match the running libpackage -- so give
+		// its constructor more room than either version needs.
+		alignas(16) char storage[4096];
+		BRepositoryCache* cache = new(storage) BRepositoryCache;
+		if (roster.GetRepositoryCache(names.StringAt(i), cache) == B_OK)
+			getPackageInfos(cache, CollectPackageTexts, texts);
+		cache->~BRepositoryCache();
+	}
+	return true;
 }
 
 // Finds `name`'s current .hpkg filename in a repo by scraping its plain
@@ -1359,14 +1442,20 @@ RefreshThreadFunc(void* data)
 	}
 
 	// A "shortdesc"/"fulldesc" pair per package, same index order as
-	// "package" above (pkgman info is a local-cache read, ~30ms each --
-	// cheap enough to do for the whole list here rather than lazily per
-	// selection, so neither a row's blurb nor the detail panel's full
-	// text ever makes the user wait).
+	// "package" above, all read from the local repo caches in one pass
+	// here rather than lazily per selection, so neither a row's blurb nor
+	// the detail panel's full text ever makes the user wait.
+	PackageTextMap texts;
+	LoadRepoPackageTexts(&texts);
 	BString pkgName;
 	for (int32 i = 0; done.FindString("package", i, &pkgName) == B_OK; i++) {
 		BString shortDesc, fullDesc;
-		FetchPackageInfo(pkgName, &shortDesc, &fullDesc);
+		PackageTextMap::const_iterator found = texts.find(pkgName);
+		if (found != texts.end()) {
+			SetPackageTexts(pkgName, found->second.summary,
+				found->second.description, &shortDesc, &fullDesc);
+		} else
+			FetchPackageInfo(pkgName, &shortDesc, &fullDesc);
 		done.AddString("shortdesc", shortDesc);
 		done.AddString("fulldesc", fullDesc);
 	}

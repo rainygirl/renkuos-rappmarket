@@ -10,8 +10,9 @@ SRCS = main.cpp
 RDEFS = RAppMarket.rdef
 RSRCS =
 
-# be: interface kit; the app shells out to pkgman/curl for everything else.
-LIBS = be stdc++
+# be: interface kit; package: reading the local repo caches. The app shells
+# out to pkgman/curl for everything else.
+LIBS = be package stdc++
 LIBPATHS =
 SYSTEM_INCLUDE_PATHS =
 LOCAL_INCLUDE_PATHS =
