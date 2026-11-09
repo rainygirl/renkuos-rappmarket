@@ -832,6 +832,33 @@ FetchPackageInfo(const BString& name, BString* shortDesc, BString* fullDesc)
 	cmd << escaped << "' 2>/dev/null";
 
 	BString output = RunCaptured(cmd.String());
+
+	// pkgman prints its repository refresh on stdout first ("100%
+	// repochecksum-1 [65 bytes]", "Activating repository cache ...", in
+	// the user's language), so the first line is not necessarily the
+	// package's. Its own text starts at the line "<name>: <summary>".
+	BString prefix(name);
+	prefix << ":";
+	int32 start = 0;
+	int32 found = -1;
+	while (start < output.Length()) {
+		int32 nl = output.FindFirst('\n', start);
+		int32 end = nl >= 0 ? nl : output.Length();
+		BString line(output.String() + start, end - start);
+		line.Trim();
+		if (line.IFindFirst(prefix) == 0) {
+			found = start;
+			break;
+		}
+		start = end + 1;
+	}
+	if (found < 0) {
+		// no such line: nothing that could be shown as a description
+		shortDesc->Truncate(0);
+		fullDesc->Truncate(0);
+		return;
+	}
+	output.Remove(0, found);
 	output.Trim();
 	*fullDesc = output;
 
@@ -841,12 +868,8 @@ FetchPackageInfo(const BString& name, BString* shortDesc, BString* fullDesc)
 
 	// pkgman always prefixes the short line with "<name>: " -- redundant
 	// once it's sitting right under the name itself on the row above it.
-	BString prefix(name);
-	prefix << ":";
-	if (firstLine.IFindFirst(prefix) == 0) {
-		firstLine.Remove(0, prefix.Length());
-		firstLine.Trim();
-	}
+	firstLine.Remove(0, prefix.Length());
+	firstLine.Trim();
 	*shortDesc = firstLine;
 }
 
