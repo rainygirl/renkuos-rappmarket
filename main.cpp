@@ -1681,6 +1681,14 @@ public:
 		_Refresh();
 	}
 
+	// The main window is the application: closing it quits, instead of
+	// leaving a windowless R AppMarket in the Deskbar.
+	bool QuitRequested()
+	{
+		be_app->PostMessage(B_QUIT_REQUESTED);
+		return true;
+	}
+
 	void MessageReceived(BMessage* message)
 	{
 		switch (message->what) {
