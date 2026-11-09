@@ -281,17 +281,37 @@ IsRepoKnown(const char* url)
 	return listing.FindFirst(url) >= 0;
 }
 
-// How wide the "Repo" column is drawn, in pixels. Package names never
-// overlap it, regardless of how the BListView itself is resized -- this
-// is a fixed two-column layout, not something that reflows.
-static const float kRepoColumnWidth = 280.0f;
+// The UI scale (Appearance's font size, which follows the display's pixel
+// density on a HiDPI screen): 1 at the standard 12 pt plain font, 2 at 24 pt.
+// Every size in pixels below is multiplied by it, or a Retina display draws
+// text twice as large in a window, columns and icons sized for 1x, and the
+// list and the description panel clip.
+static float
+UIScale()
+{
+	return std::max(1.0f, be_plain_font->Size() / 12.0f);
+}
+
+
+// Scaled pixels.
+static float
+Px(float pixels)
+{
+	return roundf(pixels * UIScale());
+}
+
+
+// How wide the "Repo" column is drawn. Package names never overlap it,
+// regardless of how the BListView itself is resized -- this is a fixed
+// two-column layout, not something that reflows.
+#define kRepoColumnWidth Px(280.0f)
 
 // The actual resolution a package's icon is fetched at (see
 // IconThreadFunc) -- shared between the detail panel's own preview and
 // each row's smaller copy of the same bitmap. A row never draws its icon
 // larger than this: scaling a 48x48 bitmap down to a small row icon
 // looks fine, scaling it up past its native resolution would just blur.
-static const float kIconPreviewSize = 48.0f;
+#define kIconPreviewSize Px(48.0f)
 
 // A two-line row's height depends on the view's actual font -- there's
 // no single fixed pixel count that works both at a normal desktop font
@@ -447,10 +467,10 @@ public:
 		owner->SetLowColor(background);
 		BString repoText(fRepo);
 		owner->TruncateString(&repoText, B_TRUNCATE_END,
-			kRepoColumnWidth - 8);
+			kRepoColumnWidth - Px(8));
 		float repoBaseline = frame.top
 			+ (frame.Height() - (sfh.ascent + sfh.descent)) / 2.0f + sfh.ascent;
-		owner->DrawString(repoText.String(), BPoint(frame.left + 6, repoBaseline));
+		owner->DrawString(repoText.String(), BPoint(frame.left + Px(6), repoBaseline));
 		owner->SetFont(&font);
 
 		rgb_color ruleColor = tint_color(background, B_DARKEN_1_TINT);
@@ -461,11 +481,11 @@ public:
 
 		// Capped at the icon's own native resolution (kIconPreviewSize) --
 		// past that it would just be upscaled and blurry, not sharper.
-		float iconSize = frame.Height() - 8.0f;
+		float iconSize = frame.Height() - Px(8);
 		if (iconSize > kIconPreviewSize)
 			iconSize = kIconPreviewSize;
 
-		float iconX = frame.left + kRepoColumnWidth + 8;
+		float iconX = frame.left + kRepoColumnWidth + Px(8);
 		if (fIcon != NULL) {
 			float iconY = frame.top + (frame.Height() - iconSize) / 2.0f;
 			owner->SetDrawingMode(B_OP_ALPHA);
@@ -489,18 +509,18 @@ public:
 			owner->StringWidth(uninstallLabel.String()));
 		owner->SetFont(&font);
 
-		float buttonHeight = ceilf(sfh.ascent + sfh.descent) + 10.0f;
-		float buttonWidth = buttonTextWidth + 32.0f;
-		if (buttonWidth < 70.0f)
-			buttonWidth = 70.0f;
+		float buttonHeight = ceilf(sfh.ascent + sfh.descent) + Px(10);
+		float buttonWidth = buttonTextWidth + Px(32);
+		if (buttonWidth < Px(70))
+			buttonWidth = Px(70);
 
-		float buttonRight = frame.right - 10.0f;
+		float buttonRight = frame.right - Px(10);
 		float buttonTop = frame.top + (frame.Height() - buttonHeight) / 2.0f;
 		fButtonRect = BRect(buttonRight - buttonWidth, buttonTop, buttonRight,
 			buttonTop + buttonHeight);
 
-		float textX = iconX + kIconPreviewSize + 8;
-		float maxTextWidth = frame.right - textX - 6 - (buttonWidth + 14.0f);
+		float textX = iconX + kIconPreviewSize + Px(8);
+		float maxTextWidth = frame.right - textX - Px(6) - (buttonWidth + Px(14));
 
 		// The "installed" badge is a small rounded pill drawn after the
 		// name, not appended as "(installed)" text -- measured first (in
@@ -1081,7 +1101,7 @@ IconThreadFunc(void* data)
 						BNodeInfo nodeInfo(&node);
 						BBitmap* bitmap = new BBitmap(BRect(0, 0,
 							kIconPreviewSize - 1, kIconPreviewSize - 1), B_RGBA32);
-						if (nodeInfo.GetIcon(bitmap, B_LARGE_ICON) == B_OK)
+						if (nodeInfo.GetIcon(bitmap, (icon_size)(int32)kIconPreviewSize) == B_OK)
 							icon = bitmap;
 						else
 							delete bitmap;
@@ -1480,7 +1500,7 @@ class AddRepoWindow : public BWindow {
 public:
 	AddRepoWindow(BMessenger target)
 		:
-		BWindow(BRect(150, 150, 550, 230), T(kAddRepoWindowTitle),
+		BWindow(BRect(150, 150, 150 + Px(400), 150 + Px(80)), T(kAddRepoWindowTitle),
 			B_TITLED_WINDOW,
 			B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_AUTO_UPDATE_SIZE_LIMITS),
 		fTarget(target)
@@ -1535,7 +1555,8 @@ class AppMarketWindow : public BWindow {
 public:
 	AppMarketWindow()
 		:
-		BWindow(BRect(100, 100, 900, 760), T(kWindowTitle), B_TITLED_WINDOW,
+		BWindow(BRect(100, 100, 100 + Px(800), 100 + Px(660)), T(kWindowTitle),
+			B_TITLED_WINDOW,
 			B_ASYNCHRONOUS_CONTROLS),
 		fAllPackages(20),
 		fSortMode(kSortByPackage),
@@ -1567,7 +1588,7 @@ public:
 		fSearchField = new BTextControl("search", T(kSearchLabel), "",
 			new BMessage(kMsgSearchChanged));
 		fSearchField->SetModificationMessage(new BMessage(kMsgSearchChanged));
-		fSearchField->SetExplicitMaxSize(BSize(220, B_SIZE_UNSET));
+		fSearchField->SetExplicitMaxSize(BSize(Px(220), B_SIZE_UNSET));
 
 		fMenuBar = new BMenuBar("menubar");
 
@@ -1604,8 +1625,8 @@ public:
 		// Tall enough for about four or five lines before the vertical
 		// scrollbar (already enabled -- see the BScrollView args above)
 		// actually has to do anything; was two lines' worth before.
-		descScroll->SetExplicitMinSize(BSize(B_SIZE_UNSET, 160));
-		descScroll->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, 220));
+		descScroll->SetExplicitMinSize(BSize(B_SIZE_UNSET, Px(160)));
+		descScroll->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, Px(220)));
 
 		fStatus = new BStringView("status", T(kLoading));
 
@@ -1720,7 +1741,7 @@ public:
 			{
 				AddRepoWindow* addWindow = new AddRepoWindow(BMessenger(this));
 				BRect mainFrame = Frame();
-				addWindow->MoveTo(mainFrame.left + 60, mainFrame.top + 80);
+				addWindow->MoveTo(mainFrame.left + Px(60), mainFrame.top + Px(80));
 				addWindow->Show();
 				break;
 			}
