@@ -38,4 +38,4 @@ MIT.
 
 ## Aviso sobre el uso de IA
 
-Este programa fue escrito con Claude.
+Partes de R AppMarket se desarrollaron con la ayuda de herramientas de programación con IA (Claude de Anthropic). Todo el código ha sido revisado y probado por el autor.

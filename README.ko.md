@@ -36,6 +36,7 @@ R AppMarket은 Terminal에 `pkgman` 명령을 직접 치지 않고도, 창 하�
 
 MIT.
 
-## AI 활용 고지
+## AI 사용 고지
 
-이 프로그램은 Claude로 작성되었습니다.
+R AppMarket의 일부는 AI 코딩 도구(Anthropic Claude)의 도움을 받아 개발했습니다.
+모든 코드는 작성자가 검토하고 테스트했습니다.

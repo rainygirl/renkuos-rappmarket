@@ -38,4 +38,5 @@ MIT.
 
 ## AI disclosure
 
-This program was written with Claude.
+Parts of R AppMarket were developed with the assistance of AI coding tools
+(Anthropic's Claude). All code has been reviewed and tested by the author.

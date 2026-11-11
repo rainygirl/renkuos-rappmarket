@@ -36,6 +36,7 @@ R AppMarketを使うと、Terminalで`pkgman`コマンドを打たなくても�
 
 MIT。
 
-## AI利用について
+## AI の利用について
 
-このプログラムはClaudeを使って書かれました。
+R AppMarket の一部は AI コーディングツール (Anthropic の Claude) の支援を受けて開発しました。
+すべてのコードは作者がレビューし、テストしています。

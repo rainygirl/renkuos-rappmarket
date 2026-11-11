@@ -36,6 +36,6 @@ Disponibile per **arm64**, **x86_64** e **x86** a 32 bit (ibrido gcc2).
 
 MIT.
 
-## Nota sull'uso dell'IA
+## Uso dell'IA
 
-Questo programma è stato scritto con Claude.
+Parti di R AppMarket sono state sviluppate con l'aiuto di strumenti di programmazione basati sull'IA (Claude di Anthropic). Tutto il codice è stato rivisto e testato dall'autore.
